@@ -2,52 +2,115 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Reserva E2E</title>
-    <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 50px; }
-        .form-group { margin-bottom: 15px; }
-        .sucesso { color: green; font-weight: bold; }
-        .erro { color: red; font-weight: bold; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Estufa - Teste de Limite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <h2>Cadastro na Viagem</h2>
-    <div>
-        <div class="form-group">
-            <label>Nome:</label>
-            <input type="text" id="nomeInput" placeholder="Seu nome">
+<body id="app-container" class="min-h-screen flex flex-col items-center justify-center transition-colors duration-700 bg-green-500">
+
+    <div class="bg-white/20 backdrop-blur-md p-10 rounded-2xl shadow-2xl text-center text-white min-w-[400px]">
+        
+        <h1 class="text-3xl font-bold mb-2">Painel da Estufa</h1>
+        
+        <p class="text-xl font-medium mb-8 bg-black/20 py-2 rounded-lg">
+            Status: <span id="status-display" class="font-bold">Carregando...</span>
+        </p>
+
+        <div id="temperatura-display" class="text-7xl font-black mb-6 drop-shadow-lg">
+            22°C
         </div>
-        <div class="form-group">
-            <label>Idade:</label>
-            <input type="number" id="idadeInput" placeholder="Sua idade">
+
+        <p id="mensagem-display" class="text-lg font-semibold mb-6 tracking-wide">
+            Aguardando sistema...
+        </p>
+
+        <!-- Input numérico para digitação direta -->
+        <div class="flex justify-center items-center gap-4 mb-6">
+            <input type="number" id="input-temp" value="22" class="w-24 h-12 text-center text-gray-900 font-bold text-2xl rounded-lg outline-none shadow-inner" placeholder="°C" />
+            <button onclick="definirTemperatura()" class="bg-white text-gray-900 font-bold h-12 px-6 rounded-lg hover:bg-gray-200 hover:scale-105 transition-all shadow-md">
+                Ajustar
+            </button>
         </div>
-        <button id="btnReservar" onclick="fazerReserva()">Reservar Vaga</button>
+
+        <div class="flex justify-center gap-6">
+            <button onclick="alterarTemperatura(-1)" class="w-16 h-16 bg-white text-gray-900 rounded-full text-4xl font-bold hover:bg-gray-200 hover:scale-105 active:scale-95 transition-all shadow-lg flex items-center justify-center">
+                -
+            </button>
+            
+            <button onclick="alterarTemperatura(1)" class="w-16 h-16 bg-white text-gray-900 rounded-full text-4xl font-bold hover:bg-gray-200 hover:scale-105 active:scale-95 transition-all shadow-lg flex items-center justify-center">
+                +
+            </button>
+        </div>
+        
+        <div class="mt-8 text-sm opacity-80 border-t border-white/30 pt-4">
+            Limites de Teste E2E: <br/> 
+            [14] | 15 ... 30 | [31]
+        </div>
+
     </div>
-    <p id="mensagemRetorno"></p>
 
     <script>
-        async function fazerReserva() {
-            const nome = document.getElementById('nomeInput').value;
-            const idade = document.getElementById('idadeInput').value;
-            const msg = document.getElementById('mensagemRetorno');
+        let temperaturaAtual = 22;
 
-            try {
-                // Tenta adicionar na viagem de ID 1
-                const response = await fetch('/api/viagens/1/passageiros', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, idade })
-                });
-                
-                const texto = await response.text();
-                // Altera a classe CSS dependendo do Status HTTP (200 OK vs 400 Bad Request)
-                msg.className = response.ok ? 'sucesso' : 'erro';
-                msg.innerText = texto;
-            } catch (error) {
-                msg.className = 'erro';
-                msg.innerText = "Erro ao conectar com a API.";
+        const container = document.getElementById('app-container');
+        const displayTemp = document.getElementById('temperatura-display');
+        const displayStatus = document.getElementById('status-display');
+        const displayMensagem = document.getElementById('mensagem-display');
+        const inputTemp = document.getElementById('input-temp');
+
+        function alterarTemperatura(mudanca) {
+            temperaturaAtual += mudanca;
+            inputTemp.value = temperaturaAtual; 
+            consultarBackend();
+        }
+
+        // Leitura direta pelo campo digitado
+        function definirTemperatura() {
+            const valorDigitado = parseInt(inputTemp.value);
+            if (!isNaN(valorDigitado)) {
+                temperaturaAtual = valorDigitado;
+                consultarBackend();
             }
         }
+
+        function consultarBackend() {
+            displayTemp.innerText = temperaturaAtual + "°C";
+
+            fetch('/api/estufa/leitura?temperatura=' + temperaturaAtual)
+                .then(resposta => resposta.text())
+                .then(statusDoBackend => {
+                    atualizarInterface(statusDoBackend);
+                })
+                .catch(erro => {
+                    console.error("Erro ao comunicar com a API:", erro);
+                    displayStatus.innerText = "ERRO DE CONEXÃO";
+                });
+        }
+
+        function atualizarInterface(status) {
+            displayStatus.innerText = status;
+            container.classList.remove('bg-green-500', 'bg-blue-500', 'bg-red-500');
+
+            if (status === "OK") {
+                container.classList.add('bg-green-500');
+                displayMensagem.innerText = "Clima Ideal 🌿";
+            } else if (status === "ALERTA") {
+                if (temperaturaAtual < 15) {
+                    container.classList.add('bg-blue-500');
+                    displayMensagem.innerText = "Risco de Congelamento ❄️";
+                } else if (temperaturaAtual > 30) {
+                    container.classList.add('bg-red-500');
+                    displayMensagem.innerText = "Risco de Superaquecimento 🔥";
+                }
+
+                // Dispara o alerta após a mudança de cor da tela renderizar
+                setTimeout(() => {
+                    alert(`ALERTA: Temperatura de ${temperaturaAtual}°C excedeu o limite tolerável da estufa!`);
+                }, 150);
+            }
+        }
+
+        consultarBackend();
     </script>
 </body>
 </html>
