@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Veículos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8 text-gray-800">
+
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- Cabeçalho -->
+        <header class="bg-white p-6 rounded-xl shadow flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-blue-600">Gestão de Veículos</h1>
+            <a href="/" class="text-sm text-gray-500 hover:underline">Voltar para Início</a>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Formulário de Cadastro -->
+            <div class="bg-white p-6 rounded-xl shadow col-span-1">
+                <h2 class="text-xl font-bold mb-4">Novo Veículo</h2>
+                <form id="form-veiculo" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium">Placa</label>
+                        <input type="text" id="placa" class="w-full mt-1 p-2 border rounded-md uppercase" placeholder="ABC-1234" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Modelo</label>
+                        <input type="text" id="modelo" class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: Honda Civic" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Proprietário</label>
+                        <input type="text" id="proprietario" class="w-full mt-1 p-2 border rounded-md" placeholder="Nome do Dono" required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 rounded-md hover:bg-blue-700 transition">
+                        Cadastrar
+                    </button>
+                </form>
+                <div id="mensagem" class="mt-4 text-sm font-semibold hidden"></div>
+            </div>
+
+            <!-- Lista de Veículos e Pesquisa -->
+            <div class="bg-white p-6 rounded-xl shadow col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Frota</h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="busca-modelo" class="p-2 border rounded-md text-sm" placeholder="Buscar por modelo...">
+                        <button onclick="buscarModelos()" class="bg-gray-200 px-4 py-2 rounded-md hover:bg-gray-300 transition">Buscar</button>
+                        <button onclick="carregarVeiculos()" class="bg-gray-200 px-3 py-2 rounded-md hover:bg-gray-300 transition" title="Limpar busca">✖</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600">
+                                <th class="p-3 border-b">Placa</th>
+                                <th class="p-3 border-b">Modelo</th>
+                                <th class="p-3 border-b">Proprietário</th>
+                                <th class="p-3 border-b text-center">Status</th>
+                                <th class="p-3 border-b text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-veiculos">
+                            <!-- Linhas inseridas via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080/api/veiculos';
+
+        // 1. Carregar lista ao iniciar a página
+        document.addEventListener('DOMContentLoaded', carregarVeiculos);
+
+        function carregarVeiculos() {
+            fetch(API_URL)
+                .then(res => res.json())
+                .then(dados => renderizarTabela(dados))
+                .catch(err => console.error("Erro ao carregar veículos:", err));
+        }
+
+        // 2. Renderizar dados na tabela
+        function renderizarTabela(veiculos) {
+            const tbody = document.getElementById('tabela-veiculos');
+            tbody.innerHTML = '';
+
+            if (veiculos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">Nenhum veículo encontrado.</td></tr>';
+                return;
+            }
+
+            veiculos.forEach(v => {
+                const statusBadge = v.ativo 
+                    ? '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">ATIVO</span>'
+                    : '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold">INATIVO</span>';
+
+                const acaoBtn = v.ativo
+                    ? `<button onclick="desativarVeiculo('${v.placa}')" class="text-red-500 hover:underline text-sm font-bold">Desativar</button>`
+                    : `<span class="text-gray-400 text-sm">N/A</span>`;
+
+                tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50 transition">
+                        <td class="p-3 font-mono font-bold">${v.placa}</td>
+                        <td class="p-3">${v.modelo}</td>
+                        <td class="p-3">${v.proprietario}</td>
+                        <td class="p-3 text-center">${statusBadge}</td>
+                        <td class="p-3 text-center">${acaoBtn}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 3. Cadastrar novo veículo
+        document.getElementById('form-veiculo').addEventListener('submit', function (e) {
+            e.preventDefault();
+            
+            const veiculo = {
+                placa: document.getElementById('placa').value.toUpperCase(),
+                modelo: document.getElementById('modelo').value,
+                proprietario: document.getElementById('proprietario').value
+            };
+
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(veiculo)
+            })
+            .then(async res => {
+                const divMsg = document.getElementById('mensagem');
+                divMsg.classList.remove('hidden', 'text-green-600', 'text-red-600');
+                
+                if (res.ok) {
+                    divMsg.innerText = "Veículo cadastrado com sucesso!";
+                    divMsg.classList.add('text-green-600');
+                    document.getElementById('form-veiculo').reset();
+                    carregarVeiculos(); // Recarrega a tabela
+                } else {
+                    const erroTxt = await res.text();
+                    divMsg.innerText = `Erro: ${erroTxt}`;
+                    divMsg.classList.add('text-red-600');
+                }
+            })
+            .catch(err => console.error("Erro na requisição POST:", err));
+        });
+
+        // 4. Desativar Veículo (PATCH)
+        function desativarVeiculo(placa) {
+            if(!confirm(`Tem certeza que deseja desativar o veículo placa ${placa}?`)) return;
+
+            fetch(`${API_URL}/${placa}/desativar`, {
+                method: 'PATCH'
+            })
+            .then(res => {
+                if (res.ok) {
+                    carregarVeiculos();
+                } else {
+                    alert("Erro ao desativar veículo.");
+                }
+            })
+            .catch(err => console.error("Erro no PATCH:", err));
+        }
+
+        // 5. Buscar por Modelo
+        function buscarModelos() {
+            const termo = document.getElementById('busca-modelo').value;
+            if(!termo) {
+                carregarVeiculos();
+                return;
+            }
+
+            fetch(`${API_URL}/modelo?termo=${encodeURIComponent(termo)}`)
+                .then(res => res.json())
+                .then(dados => renderizarTabela(dados))
+                .catch(err => console.error("Erro ao buscar modelo:", err));
+        }
+    </script>
+</body>
+</html>

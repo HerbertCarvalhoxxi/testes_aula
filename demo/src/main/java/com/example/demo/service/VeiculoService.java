@@ -31,6 +31,12 @@ public class VeiculoService {
         return mapper.toResponseDTO(salvo);
     }
 
+    public List<VeiculoResponseDTO> listarTodos() {
+        return repository.findAll().stream()
+                .map(mapper::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     public VeiculoResponseDTO buscarPorPlaca(String placa) {
         Veiculo veiculo = repository.findByPlaca(placa)
                 .orElseThrow(() -> new RuntimeException("Veículo não encontrado."));

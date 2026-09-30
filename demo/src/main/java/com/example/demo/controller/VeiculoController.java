@@ -42,4 +42,9 @@ public class VeiculoController {
         List<VeiculoResponseDTO> veiculos = service.buscarPorModelo(termo);
         return ResponseEntity.ok(veiculos);
     }
+
+    @GetMapping
+    public ResponseEntity<List<VeiculoResponseDTO>> listarTodos() {
+        return ResponseEntity.ok(service.listarTodos());
+    }
 }
